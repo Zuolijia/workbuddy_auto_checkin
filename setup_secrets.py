@@ -97,14 +97,46 @@ def main():
 
     st, me = api("GET", "/user", token)
     if st != 200:
-        log("[x] token 无效或权限不足（HTTP %s）：%s" % (st, json.dumps(me, ensure_ascii=False)[:300]))
+        log("[x] token 无效或已过期（HTTP %s）：%s" % (st, json.dumps(me, ensure_ascii=False)[:300]))
+        log("")
+        log("    请到 https://github.com/settings/tokens 确认该 token 是否已被删除。")
         return 2
     log("[√] token 有效，身份：%s" % me.get("login"))
+
+    # ---- 1.5 权限自检：Secrets 权限与 Contents 是两套，Contents 不会覆盖 ----
+    st, repo = api("GET", "/repos/%s/%s" % (OWNER, REPO), token)
+    if st == 200:
+        perms = repo.get("permissions", {})
+        log("[√] 仓库可访问：%s" % repo.get("full_name"))
+        if not perms.get("push"):
+            log("[!] 注意：当前 token 对该仓库没有 push 权限")
+    else:
+        log("[!] 无法读取仓库信息（HTTP %s），继续尝试" % st)
 
     # ---- 2. 取仓库公钥 ----
     st, keydata = api("GET", "/repos/%s/%s/actions/secrets/public-key" % (OWNER, REPO), token)
     if st != 200:
-        log("[x] 无法读取仓库公钥（HTTP %s）：%s" % (st, json.dumps(keydata, ensure_ascii=False)[:300]))
+        log("")
+        log("[x] 无法读取仓库公钥（HTTP %s）" % st)
+        log("    %s" % json.dumps(keydata, ensure_ascii=False)[:300])
+        log("")
+        if st == 403:
+            log("    ══════════════════════════════════════════════════════")
+            log("    原因：token 缺少 Secrets 权限。")
+            log("")
+            log("    Actions Secrets 是独立于 Contents 的一套权限，")
+            log("    只勾 Contents = Read and write 是无法读写 Secret 的。")
+            log("")
+            log("    修复步骤：")
+            log("      1) 打开 https://github.com/settings/tokens")
+            log("      2) 点你那个 token 名字进去（或 Generate new token）")
+            log("      3) Repository access 选中 %s" % REPO)
+            log("      4) Permissions → Repository permissions，勾上：")
+            log("           Secrets        = Read and write   ← 这项是本次报错的缺项")
+            log("           Actions        = Read and write   （建议一并勾上，便于手动跑流程）")
+            log("           Contents       = Read and write")
+            log("      5) 保存。若是修改已有 token，需要点 Generate new token 重新生成一个")
+            log("    ══════════════════════════════════════════════════════")
         return 2
     key_b64 = keydata["key"]
     key_id = keydata["key_id"]
@@ -164,6 +196,11 @@ def main():
         })
         if st not in (201, 204):
             log("[x] %s 写入失败（HTTP %s）：%s" % (name, st, json.dumps(res, ensure_ascii=False)[:250]))
+            if st == 403:
+                log("    ↳ 同样是 Secrets 权限问题，请确认该 token 勾了")
+                log("      Repository permissions → Secrets = Read and write")
+            elif st == 422:
+                log("    ↳ 载荷被拒：多为 base64 编码异常。若重试仍失败请把上面报文发我。")
             failed.append(name)
         else:
             log("[√] %s 已写入" % name)
