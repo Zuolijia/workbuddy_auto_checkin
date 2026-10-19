@@ -10,3 +10,6 @@ build/
 dist/
 *.spec
 wb_create*.json
+
+# 8MB 的打包产物不入库（本机保留，需要时用 pyinstaller 重新生成）
+refresh_token.exe
