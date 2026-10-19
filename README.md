@@ -25,6 +25,18 @@ WorkBuddy「Buddy 加油站」的每日自动化：**签到领积分**、**派�
 - **微信推送** — 走 Server酱（FTQQ）或 PushPlus，无需飞书/企业微信/邮箱
 - **零明文入库** — 仓库不含任何凭据；token 由本机脚本导出后写入 GitHub Secret
 
+## 新手最快路径
+
+不想读完整文档？只需要 5 步：
+
+1. 装 [gh CLI](https://cli.github.com/)（Windows 一行 `winget install GitHub.CLI`）
+2. `gh auth login`（浏览器走 OAuth）
+3. 拿一个微信推送 key：[Server酱](https://sct.ftqq.com/login) 扫码登录 或 [PushPlus](https://www.pushplus.plus) 公众号拿 token
+4. cd 到项目根目录，运行 `python deploy_full.py`，按提示填 4 个值
+5. 跑完按屏幕提示：本机跑 `refresh_token.exe --gh-repo 你/仓库`，GitHub 网页点启用 + Run workflow
+
+详细说明见下方 [一键部署（推荐：deploy_full.py）](#一键部署推荐deploy_fullpy)。
+
 ## 工作原理
 
 ```text
@@ -236,7 +248,8 @@ wb_auto.py                    云端执行主体：签到、领奖、派出、�
 refresh_token.py              本机一次性操作：导出 token / 写入 Secret
 refresh_token.exe             上者的免 Python 打包版（Windows x64，双击即用）
 .github/workflows/daily.yml   cron 定义与执行步骤
-deploy.bat / deploy.sh        一键创建 GitHub 私有仓库 + push（可选）
+deploy_full.py                一键部署（推荐）：用 gh CLI 自动 push + 配 Secret
+deploy.bat / deploy.sh        备选：GitHub API + PAT 方式的一键部署
 wps/                          WPS 金山文档版（脚本 + 说明，见 wps/README.md）
 ```
 
@@ -279,11 +292,80 @@ wps/                          WPS 金山文档版（脚本 + 说明，见 wps/RE
 - 仅支持 `sym-v1` / `suite 1` 格式的加密信封；其它格式会明确返回 `UNSUPPORTED_ENVELOPE` 而非发送无效请求
 - 推送文案不带签名——标题级别 emoji + Markdown 内容；如果你想要卡片/链接预览，可改用 PushPlus 的 `template: "html"`
 
-## 一键部署（可选）
+## 一键部署（推荐：deploy_full.py）
 
-如果你不习惯手动走上面 6 步，仓库里附了两个一键脚本，会自动调 GitHub API 创建私有仓库并推送：
+如果你是第一次操作 GitHub Actions，最简方式是用 Python 一键脚本。**整个流程只需在终端填 4 个值**，脚本会帮你做完 GitHub API 部分的所有事。
 
-- **Windows**：双击 `deploy.bat`
-- **macOS / Linux**：`bash deploy.sh`
+### 准备（一次性，约 10 分钟）
 
-需要你准备一个 GitHub Personal Access Token（Fine-grained，权限：Repository Contents = Read and write），脚本会引导你粘贴。Secrets 的写入必须用仓库公钥加密，这一步无法纯靠 curl 完成，所以脚本会打印详细的网页操作指引，照着点即可。
+| 步骤 | 命令 / 链接 | 说明 |
+| --- | --- | --- |
+| ① 装 gh CLI | Windows: `winget install GitHub.CLI`<br>macOS: `brew install gh`<br>Linux: `apt install gh`<br>或 https://cli.github.com/ | GitHub 官方命令行，**不需要** Personal Access Token |
+| ② 登录 gh | `gh auth login`<br>（按提示选 HTTPS + 浏览器走 OAuth） | 跟 GitHub 网页同账号即可 |
+| ③ 拿微信推送 key | Server酱: https://sct.ftqq.com/login 扫码登录拿 SendKey<br>PushPlus: 关注公众号「pushplus 推送加」拿 token | 二选一即可 |
+| ④ clone 这个项目 | `git clone https://github.com/Zuolijia/workbuddy_auto_checkin.git`<br>然后 cd 进去 | 或者在 GitHub 网页下载 ZIP 后解压 |
+
+### 跑一键脚本
+
+```
+cd workbuddy_auto_checkin
+python deploy_full.py
+```
+
+按提示填：
+
+| 提示 | 填什么 | 示例 |
+| --- | --- | --- |
+| GitHub 用户名 | 你的用户名 | `Zuolijia` |
+| 仓库名 | 仓库名 | `workbuddy_auto_checkin` |
+| 推送渠道 | `serverchan` 或 `pushplus` | `serverchan` |
+| SendKey / token | 第③步拿到的 | `SCT2xxxxx...` |
+
+脚本会自动：
+
+1. `git push -u origin main` —— 把所有代码推到你的仓库
+2. `gh secret set WECHAT_PUSH_TYPE` —— 写入推送渠道
+3. `gh secret set WECHAT_PUSH_KEY` —— 写入推送 key
+
+最后屏幕会打印**剩下 2 步**的具体命令和链接，照着点即可。
+
+### 剩下 2 步（脚本无法替你做）
+
+**A. 在你装 WorkBuddy 的电脑上导出 token**（必须你自己做）：
+
+```
+refresh_token.exe --gh-repo Zuolijia/workbuddy_auto_checkin
+```
+
+或装了 Python：
+
+```
+python refresh_token.py --gh-repo Zuolijia/workbuddy_auto_checkin
+```
+
+屏幕显示「已写入 GitHub Secret WB_ACCESS_TOKEN」即完成。**这一步只能在你自己电脑上跑**，因为加密信封的密钥绑在本机 WorkBuddy 客户端里。
+
+**B. 在 GitHub 网页启用并触发一次**（只点两下）：
+
+1. 打开 `https://github.com/Zuolijia/workbuddy_auto_checkin/actions`，点启用 workflows
+2. 左侧选「Buddy 加油站每日自动化」→ 右侧点「Run workflow」→ 「Run workflow」
+3. 几秒后看日志；微信应收到推送
+
+---
+
+### 备选：`deploy.bat` / `deploy.sh`（用 Personal Access Token）
+
+如果你不想装 gh CLI，可以用仓库里附的 `deploy.bat`（Windows）/ `deploy.sh`（macOS / Linux）。这两个脚本走 GitHub API + Personal Access Token：
+
+1. 申请 PAT：https://github.com/settings/tokens?type=beta（Fine-grained，Repository Contents = Read and write）
+2. 双击 `deploy.bat`，按提示填用户名、仓库名、PAT
+3. 脚本同样会做创建仓库（如果不存在）+ push，剩下的 2 步与上面 A/B 完全一样
+
+> 为什么不推荐：PAT 关联具体权限、撤销麻烦、容易和"Classic token"混淆出错。gh CLI 走 OAuth，过期自动续。
+
+---
+
+### 如果你的仓库已经创建但代码还没 push
+
+- 直接跳到「跑一键脚本」步骤
+- 脚本会直接 push；不会重新创建仓库
