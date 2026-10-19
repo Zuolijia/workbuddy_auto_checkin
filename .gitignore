@@ -9,3 +9,4 @@ token*.jpg
 build/
 dist/
 *.spec
+wb_create*.json

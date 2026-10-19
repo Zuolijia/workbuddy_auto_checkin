@@ -236,6 +236,7 @@ wb_auto.py                    云端执行主体：签到、领奖、派出、�
 refresh_token.py              本机一次性操作：导出 token / 写入 Secret
 refresh_token.exe             上者的免 Python 打包版（Windows x64，双击即用）
 .github/workflows/daily.yml   cron 定义与执行步骤
+deploy.bat / deploy.sh        一键创建 GitHub 私有仓库 + push（可选）
 wps/                          WPS 金山文档版（脚本 + 说明，见 wps/README.md）
 ```
 
@@ -277,3 +278,12 @@ wps/                          WPS 金山文档版（脚本 + 说明，见 wps/RE
 - 依赖客户端私有接口，客户端升级可能改变接口或凭据格式，届时需更新脚本
 - 仅支持 `sym-v1` / `suite 1` 格式的加密信封；其它格式会明确返回 `UNSUPPORTED_ENVELOPE` 而非发送无效请求
 - 推送文案不带签名——标题级别 emoji + Markdown 内容；如果你想要卡片/链接预览，可改用 PushPlus 的 `template: "html"`
+
+## 一键部署（可选）
+
+如果你不习惯手动走上面 6 步，仓库里附了两个一键脚本，会自动调 GitHub API 创建私有仓库并推送：
+
+- **Windows**：双击 `deploy.bat`
+- **macOS / Linux**：`bash deploy.sh`
+
+需要你准备一个 GitHub Personal Access Token（Fine-grained，权限：Repository Contents = Read and write），脚本会引导你粘贴。Secrets 的写入必须用仓库公钥加密，这一步无法纯靠 curl 完成，所以脚本会打印详细的网页操作指引，照着点即可。
